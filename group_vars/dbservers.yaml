@@ -1,0 +1,4 @@
+db:
+  name: "appdb"
+  user: "dbuser"
+  password: "pass123"
