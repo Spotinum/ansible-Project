@@ -1,0 +1,37 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.hostmanager.enabled = true
+  config.vm.box = "ubuntu/jammy64"
+
+  config.vm.define "control", primary: true do |h|
+    h.vm.hostname = "control"
+    h.vm.network "private_network", ip: "192.168.56.10"
+    h.vm.provision "shell", path: "scripts/key.sh"
+  end
+
+   config.vm.define "springboot" do |web|
+    web.vm.box = "ubuntu/jammy64"
+    web.vm.hostname = "springboot"
+    web.vm.network "private_network", ip: "192.168.56.101"
+    web.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+  end
+
+
+    config.vm.define "dbserver" do |db|
+      db.vm.box = "ubuntu/jammy64"
+      db.vm.hostname = "dbserver"
+      db.vm.network "private_network", ip: "192.168.56.102"
+      db.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+    end
+    
+
+    config.vm.define "frontserver" do |h|
+      h.vm.hostname = "frontserver"
+      h.vm.network "private_network", ip: "192.168.56.103"
+      h.vm.provision :shell, inline: 'cat /vagrant/control.pub >> /home/vagrant/.ssh/authorized_keys'
+    end
+
+
+  end
