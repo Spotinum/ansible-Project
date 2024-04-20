@@ -1,4 +1,4 @@
 db:
   name: "appdb"
-  user: "dbuser"
-  password: "pass123"
+  user: "appuser"
+  password: "apppassword"
