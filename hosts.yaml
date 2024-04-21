@@ -10,8 +10,11 @@ dbservers:
     hosts:
       dbserver-vm:
           ansible_host: dbserver
+      
 
 appservers:
     hosts:
       appserver-vm:
         ansible_host: springboot
+      frontend-vm:
+          ansible_host: frontserver
