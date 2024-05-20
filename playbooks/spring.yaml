@@ -2,7 +2,6 @@
 - hosts: all
 
   vars:
-    appdir: "/home/vagrant/spring"
     branch: "main"
 
   pre_tasks:

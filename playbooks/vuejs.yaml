@@ -2,7 +2,6 @@
 - hosts: appservers
 
   vars:
-      frontendappdir: "/home/vagrant/frontend"
       branch: "main"
       site_location: /var/www/vue
 
