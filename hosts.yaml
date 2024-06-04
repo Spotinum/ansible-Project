@@ -18,3 +18,5 @@ appservers:
         ansible_host: springboot
       frontend-vm:
           ansible_host: frontserver
+      docker-vm:
+          ansible_host: docker
