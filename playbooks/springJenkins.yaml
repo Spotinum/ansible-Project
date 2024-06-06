@@ -1,0 +1,53 @@
+---
+- hosts: all
+
+  vars:
+    branch: "main"
+
+  pre_tasks:
+    - name: Install Java
+      apt:
+        name: openjdk-21-jdk
+        state: present
+        update_cache: yes
+      become: yes
+
+    - name: Install Maven
+      become: yes
+      apt:
+        name: maven
+        state: present
+
+  tasks:
+    - name: "Clone the Spring repository"
+      git:
+        repo: "https://github.com/Spotinum/localDocAppBackend.git"
+        dest: "{{ appdir }}"
+        version: "{{ branch }}"
+        force: yes
+
+    - name: "Populate application.properties"
+      lineinfile:
+        dest: "{{ appdir }}/src/main/resources/application.properties"
+        state: present
+        regexp: "^{{item.key}}="
+        line: "{{item.key}}={{item.value}}"
+      with_items:
+        - "{{app.env | dict2items}}"
+
+
+    - name: Build the Spring application
+      become: yes
+      command: mvn package -Dmaven.test.skip
+      args:
+        chdir: "{{ appdir }}"
+
+
+    - name: Run the Spring application
+      command: java -jar {{ appdir }}/target/localDocAppBackend-0.0.1-SNAPSHOT.jar
+      args:
+        chdir: "{{ appdir }}/target"
+      become: yes
+      async: 1000
+      poll: 0
+
