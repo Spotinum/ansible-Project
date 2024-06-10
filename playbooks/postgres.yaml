@@ -1,23 +1,21 @@
----
 - hosts: dbservers
   become: yes
   become_user: root
 
-
   pre_tasks:
-    - name: Install the PostgreSQL package
+    - name: Install the PostgreSQL package  #Install PostgreSQL client and contrib packages
       apt:
         name: ["postgresql-contrib", "postgresql-client"]
         state: present
         update_cache: yes
 
-    - name: install pip3
+    - name: install pip3  # Install Python pip3 package manager
       apt:
         name: ["python3-pip"]
         state: present
         update_cache: yes
 
-    - name: "Install Python packages"
+    - name: "Install Python packages"  #Install psycopg2-binary package for PostgreSQL
       pip:
         name: "{{ item }}"
         state: present
@@ -25,20 +23,20 @@
         - psycopg2-binary
 
   tasks:
-    - name: check if postgres is initialized
+    - name: check if postgres is initialized  #Check if PostgreSQL is initialized
       ansible.builtin.stat:
         path: /var/lib/postgresql/14/main
       register: postgres_data
 
-    - name: debug stat
+    - name: debug stat  #Debug the state of PostgreSQL data directory
       ansible.builtin.debug:
         msg: "postgres data debug {{postgres_data}}"
 
-    - name: "Initialize PostgreSQL"
+    - name: "Initialize PostgreSQL"  #Initialize PostgreSQL if not already initialized
       shell: "postgresql-setup initdb"
       when: not postgres_data.stat.exists
 
-    - name: "Start and enable services"
+    - name: "Start and enable services"  #Start and enable PostgreSQL service
       service:
         name: "{{ item }}"
         state: started
@@ -46,23 +44,22 @@
       with_items:
         - postgresql
 
-    - name: "Create app database"
+    - name: "Create app database"  #Create application database
       postgresql_db:
         state: present
         name: "{{ db.name }}"
       become: yes
       become_user: postgres
 
-
-    - name: "Create db user"
+    - name: "Create db user"  #Create database user with specified credentials
       postgresql_user:
-          state: present
-          name: "{{ db.user }}"
-          password: "{{ db.password }}"
+        state: present
+        name: "{{ db.user }}"
+        password: "{{ db.password }}"
       become: yes
       become_user: postgres
 
-    - name: "Grant db user access to app db"
+    - name: "Grant db user access to app db"  #Grant all privileges on the database to the user
       postgresql_privs:
         type: database
         database: "{{ db.name }}"
@@ -72,7 +69,7 @@
       become: yes
       become_user: postgres
 
-    - name: "Allow md5 connection for the db user"
+    - name: "Allow md5 connection for the db user"  #Configure pg_hba.conf for md5 authentication
       postgresql_pg_hba:
         dest: "/etc/postgresql/14/main/pg_hba.conf"
         contype: host
@@ -85,7 +82,7 @@
       become_user: postgres
       notify: restart postgres
 
-    - name: "Allow connections from all"
+    - name: "Allow connections from all"  #Update postgresql.conf to listen on all addresses
       lineinfile:
         path: "/etc/postgresql/14/main/postgresql.conf"
         line: "listen_addresses = '*'"
@@ -96,7 +93,5 @@
       notify: restart postgres
 
   handlers:
-    - name: restart postgres
+    - name: restart postgres  #Restart PostgreSQL service
       service: name=postgresql state=restarted
-
-

@@ -1,108 +1,96 @@
----
 - hosts: all
 
   vars:
-    branch: "main"
+    branch: "main"  #Define the branch to be used for cloning the repository
 
   pre_tasks:
-      - name: Install Java
-        apt:
-            name: openjdk-21-jdk
-            state: present
-            update_cache: yes
-        become: yes
+    - name: Install Java  #Install OpenJDK 21
+      apt:
+        name: openjdk-21-jdk
+        state: present
+        update_cache: yes
+      become: yes
 
-      - name: Install Maven
-        become: yes
-        apt:
-          name: maven
-          state: present
+    - name: Install Maven  #Install Maven build tool
+      become: yes
+      apt:
+        name: maven
+        state: present
 
   tasks:
-      - name: "Clone the Spring repository"
-        git:
-            repo: "https://github.com/Spotinum/localDocAppBackend.git"
-            dest: "{{ appdir }}"
-            version: "{{ branch }}"
-            force: yes
+    - name: "Clone the Spring repository"  #Clone the specified Git repository
+      git:
+        repo: "https://github.com/Spotinum/localDocAppBackend.git"
+        dest: "{{ appdir }}"
+        version: "{{ branch }}"
+        force: yes
 
-      - name: "Populate application.properties"
-        lineinfile:
-          dest: "{{ appdir }}/src/main/resources/application.properties"
-          state: present
-          regexp: "^{{item.key}}="
-          line: "{{item.key}}={{item.value}}"
-        with_items:
-          - "{{app.env | dict2items}}"
+    - name: "Populate application.properties"  #Populate application.properties with environment variables
+      lineinfile:
+        dest: "{{ appdir }}/src/main/resources/application.properties"
+        state: present
+        regexp: "^{{item.key}}="
+        line: "{{item.key}}={{item.value}}"
+      with_items:
+        - "{{app.env | dict2items}}"
 
+    - name: Build the Spring application  #Build the Spring application using Maven
+      become: yes
+      command: mvn package -Dmaven.test.skip
+      args:
+        chdir: "{{ appdir }}"
 
-      - name: Build the Spring application
-        become: yes
-        command: mvn package -Dmaven.test.skip
-        args:
-          chdir: "{{ appdir }}"
+    - name: copy spring service file  #Copy the Spring service file to systemd directory
+      template:
+        src: ../files/spring.service.j2
+        dest: "/etc/systemd/system/spring.service"
+      become: yes
+      become_user: root
+      notify: restart spring
 
+    - name: ensure spring service started  #Ensure the Spring service is started and enabled
+      service:
+        name: spring
+        state: started
+        enabled: yes
+      become: yes
 
-     # - name: "Build the Spring application"
-      #  command: "./mvnw package -Dmaven.test.skip "
-       # args:
-        #    chdir: "{{ appdir }}/localDocWebApp"
-       # become: yes
+    - name: "APT - install nginx"  #Install Nginx web server
+      apt:
+        name: nginx
+        update_cache: yes
+      become: yes
 
+    - name: copy nginx conf file  #Copy the Nginx configuration file
+      template:
+        src: ../files/nginx.http.j2
+        dest: "/etc/nginx/sites-available/spring"
+      become: yes
 
+    - name: enable spring site in nginx  #Enable the Spring site in Nginx
+      file:
+        src: "/etc/nginx/sites-available/spring"
+        dest: "/etc/nginx/sites-enabled/spring"
+        state: link
+      become: yes
+      notify: restart nginx
 
-      - name: copy spring service file
-        template:
-          src: ../files/spring.service.j2
-          dest: "/etc/systemd/system/spring.service"
-        become: yes
-        become_user: root
-        notify: restart spring
-
-      - name: ensure spring service started
-        service:
-          name: spring
-          state: started
-          enabled: yes
-        become: yes
-
-      - name: "APT - install nginx"
-        apt:
-          name: nginx
-          update_cache: yes
-        become: yes
-
-      - name: copy nginx conf file
-        template:
-          src: ../files/nginx.http.j2
-          dest: "/etc/nginx/sites-available/spring"
-        become: yes
-
-      - name: enable spring site in nginx
-        file:
-          src: "/etc/nginx/sites-available/spring"
-          dest: "/etc/nginx/sites-enabled/spring"
-          state: link
-        become: yes
-        notify: restart nginx
-
-      - name: de-activate default nginx site
-        file:
-          path: /etc/nginx/sites-enabled/default
-          state: absent
-        become: yes
-        notify: restart nginx
-
+    - name: de-activate default nginx site  #Deactivate the default Nginx site
+      file:
+        path: /etc/nginx/sites-enabled/default
+        state: absent
+      become: yes
+      notify: restart nginx
 
   handlers:
-  - name: restart spring
-    service:
-      name: spring
-      state: restarted
-    become: yes
+    - name: restart spring  #Restart the Spring service
+      service:
+        name: spring
+        state: restarted
+      become: yes
 
-  - name: restart nginx
-    service:
-      name: nginx
-      state: restarted
-    become: yes
+    - name: restart nginx  #Restart the Nginx service
+      service:
+        name: nginx
+        state: restarted
+      become: yes

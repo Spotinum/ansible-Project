@@ -1,13 +1,11 @@
----
 - hosts: appservers
 
   vars:
-      branch: "main"
-      site_location: /var/www/vue
+    branch: "main"  #Define the branch to be used for cloning the repository
+    site_location: /var/www/vue  #Define the location for the site files
 
   pre_tasks:
-
-    - name: Install Nginx
+    - name: Install Nginx  #Install the latest version of Nginx
       package:
         name: nginx
         state: latest
@@ -21,44 +19,42 @@
         chdir: "$HOME"
         creates: "$HOME/.nvm/nvm.sh"
 
-    - name: Setup .profile
+    - name: Setup .profile  #Add nvm to .profile to ensure Node is on the user's PATH
       ansible.builtin.lineinfile:
         path: ~/.profile
-        line: source ~/.nvm/nvm.sh # This will make sure Node is on the user's PATH
+        line: source ~/.nvm/nvm.sh
         create: yes
 
-    - name: "debug"
+    - name: "debug"  # Debug the PATH variable
       ansible.builtin.debug:
         msg: "PATH : {{ ansible_env.PATH }}"
-      
-    - name: Install node
+
+    - name: Install node  #Install Node.js using nvm
       shell: |
         source $HOME/.nvm/nvm.sh && nvm install 20.12.1
       args:
         executable: /bin/bash
         chdir: "$HOME"
         creates: "$HOME/.nvm/versions/node/v20.12.1"
-  
-    - name: Install Git
+
+    - name: Install Git  #Install the latest version of Git
       package:
         name: git
         state: latest
       become: yes
 
-
-
   tasks:
-    - name: "Clone the Vue repository"
+    - name: "Clone the Vue repository"  #Clone the specified Vue.js repository
       git:
-          repo: "https://github.com/Spotinum/localDocAppVue.git"
-          dest: "{{ frontendappdir }}"
-          version: "{{ branch }}"
-          force: yes
+        repo: "https://github.com/Spotinum/localDocAppVue.git"
+        dest: "{{ frontendappdir }}"
+        version: "{{ branch }}"
+        force: yes
 
-    - name: copy env file
-      shell : "cp {{frontendappdir}}/.env.example {{frontendappdir}}/.env"
+    - name: copy env file  #Copy .env.example to .env
+      shell: "cp {{frontendappdir}}/.env.example {{frontendappdir}}/.env"
 
-    - name: populate  ~/.env
+    - name: populate ~/.env  #Populate the .env file with environment variables
       lineinfile:
         dest: "{{frontendappdir}}/.env"
         state: present
@@ -67,20 +63,19 @@
       with_items:
         - "{{app | dict2items}}"
 
-
-    - name: "Install dependencies"
+    - name: "Install dependencies"  #Install npm dependencies
       shell: |
         export PATH=$PATH:~/.nvm/versions/node/v20.12.1/bin; npm install
       args:
         chdir: "{{ frontendappdir }}"
 
-    - name: "Build the Vue.js application"
+    - name: "Build the Vue.js application"  #Build the Vue.js application
       shell: |
         export PATH=$PATH:~/.nvm/versions/node/v20.12.1/bin; npm run build
       args:
         chdir: "{{ frontendappdir }}"
 
-    - name: Copy dist in nginx location 
+    - name: Copy dist in nginx location  #Copy the build output to the Nginx site location
       copy:
         src: "{{ frontendappdir }}/dist/"
         dest: "{{ site_location }}"
@@ -90,32 +85,29 @@
       notify: restart nginx
       become: yes
 
-    - name: copy nginx conf file
+    - name: copy nginx conf file  #Copy the Nginx configuration file
       template:
         src: ../files/nginx.vue.j2
         dest: "/etc/nginx/sites-available/vue"
       become: yes
 
-    - name: enable vue site in nginx
+    - name: enable vue site in nginx  #Enable the Vue site in Nginx
       file:
         src: "/etc/nginx/sites-available/vue"
         dest: "/etc/nginx/sites-enabled/vue"
         state: link
       become: yes
-    
 
-    - name: de-activate default nginx site
+    - name: de-activate default nginx site  #Deactivate the default Nginx site
       file:
         path: /etc/nginx/sites-enabled/default
         state: absent
       become: yes
       notify: restart nginx
-    
+
   handlers:
-    - name: restart nginx
+    - name: restart nginx  #Restart the Nginx service
       service:
         name: nginx
         state: restarted
       become: yes
-
-    
