@@ -1,0 +1,91 @@
+---
+- name: setup k8s
+  hosts: all
+  become: yes
+  tasks:
+
+    - name: Install MicroK8s
+      snap:
+        name: microk8s
+        classic: yes
+        state: present
+    #Allow incoming traffic on eth0 using UFW
+    - name: Allow UFW in on eth0
+      ufw:
+        rule: allow
+        direction: in
+        interface: eth0
+    #Allow outgoing traffic on eth0 using UFW
+    - name: Allow UFW out on eth0
+      ufw:
+        rule: allow
+        direction: out
+        interface: eth0
+    #Set UFW default policy to allow routed traffic
+    - name: Set UFW default allow routed
+      command: ufw default allow routed
+
+    #Add the current user to the microk8s group
+    - name: Add user to microk8s group
+      user:
+        name: "{{ ansible_user_id }}"
+        groups: microk8s
+        append: yes
+
+    #Create .kube directory in the user's home directory
+    - name: Create .kube directory in user's home
+      file:
+        path: "/home/{{ ansible_user_id }}/.kube"
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        mode: '0755'
+
+
+    #Change ownership of the .kube directory to the current user
+    - name: Change ownership of .kube directory
+      file:
+        path: "/home/{{ ansible_user_id }}/.kube"
+        state: directory
+        owner: "{{ ansible_user_id }}"
+        group: "{{ ansible_user_id }}"
+        recurse: yes
+
+    #- name: Reload user groups without logout (not supported in all shells)
+    #  command: newgrp microk8s
+
+    #Enable necessary MicroK8s addons
+    - name: Enable MicroK8s addons
+      shell: |
+        microk8s.enable dns
+        microk8s.enable storage
+        microk8s.enable ingress
+      become: yes
+      environment:
+        HOME: "/home/{{ ansible_user_id }}"
+        USER: "{{ ansible_user_id }}"
+    #Clone the localDocWebApp repository
+    - name: Clone the localDocWebApp repository
+      git:
+        repo: https://github.com/Spotinum/localDocWebApp.git
+        dest: "/home/{{ ansible_user_id }}/localDocWebApp"
+        version: main
+      become: yes
+
+    #Apply Kubernetes manifests for PostgreSQL, Spring, and Vue applications
+    - name: Apply Kubernetes manifests
+      shell: |
+        microk8s.kubectl apply -f k8s/postgres/postgres-pvc.yaml
+        microk8s.kubectl apply -f k8s/postgres/postgres-deployment.yaml
+        microk8s.kubectl apply -f k8s/postgres/postgres-svc.yaml
+        microk8s.kubectl apply -f k8s/spring/spring-deployment.yaml
+        microk8s.kubectl apply -f k8s/spring/spring-svc.yaml
+        microk8s.kubectl apply -f k8s/vue/vue-deployment.yaml
+        microk8s.kubectl apply -f k8s/vue/vue-svc.yaml
+        microk8s.kubectl apply -f k8s/vue/vue-ingress.yaml
+      args:
+        chdir: "/home/{{ ansible_user_id }}/localDocWebApp"
+      become: yes
+      environment:
+        HOME: "/home/{{ ansible_user_id }}"
+        USER: "{{ ansible_user_id }}"

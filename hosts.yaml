@@ -20,3 +20,5 @@ appservers:
           ansible_host: frontserver
       docker-vm:
           ansible_host: docker
+      k8s-vm:
+          ansible_host: k8s
